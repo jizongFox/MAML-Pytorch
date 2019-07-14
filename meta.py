@@ -1,20 +1,20 @@
-import  torch
-from    torch import nn
-from    torch import optim
-from    torch.nn import functional as F
-from    torch.utils.data import TensorDataset, DataLoader
-from    torch import optim
-import  numpy as np
+import torch
+from torch import nn
+from torch import optim
+from torch.nn import functional as F
+from torch.utils.data import TensorDataset, DataLoader
+from torch import optim
+import numpy as np
 
-from    learner import Learner
-from    copy import deepcopy
-
+from learner import Learner
+from copy import deepcopy
 
 
 class Meta(nn.Module):
     """
     Meta Learner
     """
+
     def __init__(self, args, config):
         """
 
@@ -31,12 +31,8 @@ class Meta(nn.Module):
         self.update_step = args.update_step
         self.update_step_test = args.update_step_test
 
-
         self.net = Learner(config, args.imgc, args.imgsz)
         self.meta_optim = optim.Adam(self.net.parameters(), lr=self.meta_lr)
-
-
-
 
     def clip_grad_by_norm_(self, grad, max_norm):
         """
@@ -52,15 +48,14 @@ class Meta(nn.Module):
             param_norm = g.data.norm(2)
             total_norm += param_norm.item() ** 2
             counter += 1
-        total_norm = total_norm ** (1. / 2)
+        total_norm = total_norm ** (1.0 / 2)
 
         clip_coef = max_norm / (total_norm + 1e-6)
         if clip_coef < 1:
             for g in grad:
                 g.data.mul_(clip_coef)
 
-        return total_norm/counter
-
+        return total_norm / counter
 
     def forward(self, x_spt, y_spt, x_qry, y_qry):
         """
@@ -74,9 +69,10 @@ class Meta(nn.Module):
         task_num, setsz, c_, h, w = x_spt.size()
         querysz = x_qry.size(1)
 
-        losses_q = [0 for _ in range(self.update_step + 1)]  # losses_q[i] is the loss on step i
+        losses_q = [
+            0 for _ in range(self.update_step + 1)
+        ]  # losses_q[i] is the loss on step i
         corrects = [0 for _ in range(self.update_step + 1)]
-
 
         for i in range(task_num):
 
@@ -84,7 +80,12 @@ class Meta(nn.Module):
             logits = self.net(x_spt[i], vars=None, bn_training=True)
             loss = F.cross_entropy(logits, y_spt[i])
             grad = torch.autograd.grad(loss, self.net.parameters())
-            fast_weights = list(map(lambda p: p[1] - self.update_lr * p[0], zip(grad, self.net.parameters())))
+            fast_weights = list(
+                map(
+                    lambda p: p[1] - self.update_lr * p[0],
+                    zip(grad, self.net.parameters()),
+                )
+            )
 
             # this is the loss and accuracy before first update
             with torch.no_grad():
@@ -115,7 +116,9 @@ class Meta(nn.Module):
                 # 2. compute grad on theta_pi
                 grad = torch.autograd.grad(loss, fast_weights)
                 # 3. theta_pi = theta_pi - train_lr * grad
-                fast_weights = list(map(lambda p: p[1] - self.update_lr * p[0], zip(grad, fast_weights)))
+                fast_weights = list(
+                    map(lambda p: p[1] - self.update_lr * p[0], zip(grad, fast_weights))
+                )
 
                 logits_q = self.net(x_qry[i], fast_weights, bn_training=True)
                 # loss_q will be overwritten and just keep the loss_q on last update step.
@@ -124,10 +127,10 @@ class Meta(nn.Module):
 
                 with torch.no_grad():
                     pred_q = F.softmax(logits_q, dim=1).argmax(dim=1)
-                    correct = torch.eq(pred_q, y_qry[i]).sum().item()  # convert to numpy
+                    correct = (
+                        torch.eq(pred_q, y_qry[i]).sum().item()
+                    )  # convert to numpy
                     corrects[k + 1] = corrects[k + 1] + correct
-
-
 
         # end of all tasks
         # sum over all losses on query set across all tasks
@@ -141,11 +144,9 @@ class Meta(nn.Module):
         # 	print(torch.norm(p).item())
         self.meta_optim.step()
 
-
         accs = np.array(corrects) / (querysz * task_num)
 
         return accs
-
 
     def finetunning(self, x_spt, y_spt, x_qry, y_qry):
         """
@@ -170,7 +171,9 @@ class Meta(nn.Module):
         logits = net(x_spt)
         loss = F.cross_entropy(logits, y_spt)
         grad = torch.autograd.grad(loss, net.parameters())
-        fast_weights = list(map(lambda p: p[1] - self.update_lr * p[0], zip(grad, net.parameters())))
+        fast_weights = list(
+            map(lambda p: p[1] - self.update_lr * p[0], zip(grad, net.parameters()))
+        )
 
         # this is the loss and accuracy before first update
         with torch.no_grad():
@@ -199,7 +202,9 @@ class Meta(nn.Module):
             # 2. compute grad on theta_pi
             grad = torch.autograd.grad(loss, fast_weights)
             # 3. theta_pi = theta_pi - train_lr * grad
-            fast_weights = list(map(lambda p: p[1] - self.update_lr * p[0], zip(grad, fast_weights)))
+            fast_weights = list(
+                map(lambda p: p[1] - self.update_lr * p[0], zip(grad, fast_weights))
+            )
 
             logits_q = net(x_qry, fast_weights, bn_training=True)
             # loss_q will be overwritten and just keep the loss_q on last update step.
@@ -210,7 +215,6 @@ class Meta(nn.Module):
                 correct = torch.eq(pred_q, y_qry).sum().item()  # convert to numpy
                 corrects[k + 1] = corrects[k + 1] + correct
 
-
         del net
 
         accs = np.array(corrects) / querysz
@@ -218,11 +222,9 @@ class Meta(nn.Module):
         return accs
 
 
-
-
 def main():
     pass
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

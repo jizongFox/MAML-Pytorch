@@ -19,7 +19,14 @@ global_buff = []
 
 
 def write2file(n_way, k_shot):
-    global_buff.append([global_train_loss_buff, global_train_acc_buff, global_test_loss_buff, global_test_acc_buff])
+    global_buff.append(
+        [
+            global_train_loss_buff,
+            global_train_acc_buff,
+            global_test_loss_buff,
+            global_test_acc_buff,
+        ]
+    )
     with open("mini%d%d.pkl" % (n_way, k_shot), "wb") as fp:
         pickle.dump(global_buff, fp)
 
@@ -44,8 +51,15 @@ def evaluation(net, batchsz, n_way, k_shot, imgsz, episodesz, threhold, mdl_file
     :return:
     """
     k_query = 15
-    mini_val = MiniImagenet('../mini-imagenet/', mode='test', n_way=n_way, k_shot=k_shot, k_query=k_query,
-                            batchsz=600, resize=imgsz)
+    mini_val = MiniImagenet(
+        "../mini-imagenet/",
+        mode="test",
+        n_way=n_way,
+        k_shot=k_shot,
+        k_query=k_query,
+        batchsz=600,
+        resize=imgsz,
+    )
     db_val = DataLoader(mini_val, batchsz, shuffle=True, num_workers=2, pin_memory=True)
 
     accs = []
@@ -74,7 +88,9 @@ def evaluation(net, batchsz, n_way, k_shot, imgsz, episodesz, threhold, mdl_file
         total_loss = 0
         for query_x_mini, query_y_mini in zip(query_x_b, query_y_b):
             # print('query_x_mini', query_x_mini.size(), 'query_y_mini', query_y_mini.size())
-            loss, pred, correct = net(support_x, support_y, query_x_mini.contiguous(), query_y_mini, False)
+            loss, pred, correct = net(
+                support_x, support_y, query_x_mini.contiguous(), query_y_mini, False
+            )
             correct = correct.sum()  # multi-gpu
             # pred: [b, nway]
             preds.append(pred)
@@ -86,7 +102,7 @@ def evaluation(net, batchsz, n_way, k_shot, imgsz, episodesz, threhold, mdl_file
         # # 15 * [b, nway] => [b, 15*nway]
         # preds = torch.cat(preds, dim= 1)
         acc = total_correct / total_num
-        print('%.5f,' % acc, end=' ')
+        print("%.5f," % acc, end=" ")
         sys.stdout.flush()
         accs.append(acc)
 
@@ -106,13 +122,13 @@ def evaluation(net, batchsz, n_way, k_shot, imgsz, episodesz, threhold, mdl_file
     global best_accuracy
     accs = np.array(accs)
     accuracy, sem = mean_confidence_interval(accs)
-    print('\naccuracy:', accuracy, 'sem:', sem)
-    print('<<<<<<<<< accuracy:', accuracy, 'best accuracy:', best_accuracy, '>>>>>>>>')
+    print("\naccuracy:", accuracy, "sem:", sem)
+    print("<<<<<<<<< accuracy:", accuracy, "best accuracy:", best_accuracy, ">>>>>>>>")
 
     if accuracy > best_accuracy:
         best_accuracy = accuracy
         torch.save(net.state_dict(), mdl_file)
-        print('Saved to checkpoint:', mdl_file)
+        print("Saved to checkpoint:", mdl_file)
 
     # we only take the last one batch as avg_loss
     total_loss = total_loss / n_way / k_query
@@ -127,10 +143,10 @@ def evaluation(net, batchsz, n_way, k_shot, imgsz, episodesz, threhold, mdl_file
 
 def main():
     argparser = argparse.ArgumentParser()
-    argparser.add_argument('-n', help='n way')
-    argparser.add_argument('-k', help='k shot')
-    argparser.add_argument('-b', help='batch size')
-    argparser.add_argument('-l', help='learning rate', default=1e-3)
+    argparser.add_argument("-n", help="n way")
+    argparser.add_argument("-k", help="k shot")
+    argparser.add_argument("-b", help="batch size")
+    argparser.add_argument("-l", help="learning rate", default=1e-3)
     args = argparser.parse_args()
     n_way = int(args.n)
     k_shot = int(args.k)
@@ -139,37 +155,51 @@ def main():
 
     k_query = 1
     imgsz = 224
-    threhold = 0.699 if k_shot == 5 else 0.584  # threshold for when to test full version of episode
-    mdl_file = 'ckpt/naive5_3x3%d%d.mdl' % (n_way, k_shot)
-    print('mini-imagnet: %d-way %d-shot lr:%f, threshold:%f' % (n_way, k_shot, lr, threhold))
+    threhold = (
+        0.699 if k_shot == 5 else 0.584
+    )  # threshold for when to test full version of episode
+    mdl_file = "ckpt/naive5_3x3%d%d.mdl" % (n_way, k_shot)
+    print(
+        "mini-imagnet: %d-way %d-shot lr:%f, threshold:%f"
+        % (n_way, k_shot, lr, threhold)
+    )
 
     global global_buff
-    if os.path.exists('mini%d%d.pkl' % (n_way, k_shot)):
-        global_buff = pickle.load(open('mini%d%d.pkl' % (n_way, k_shot), 'rb'))
-        print('load pkl buff:', len(global_buff))
+    if os.path.exists("mini%d%d.pkl" % (n_way, k_shot)):
+        global_buff = pickle.load(open("mini%d%d.pkl" % (n_way, k_shot), "rb"))
+        print("load pkl buff:", len(global_buff))
 
     net = nn.DataParallel(Naive5(n_way, k_shot, imgsz), device_ids=[0, 1, 2]).cuda()
     print(net)
 
     if os.path.exists(mdl_file):
-        print('load from checkpoint ...', mdl_file)
+        print("load from checkpoint ...", mdl_file)
         net.load_state_dict(torch.load(mdl_file))
     else:
-        print('training from scratch.')
+        print("training from scratch.")
 
     # whole parameters number
     model_parameters = filter(lambda p: p.requires_grad, net.parameters())
     params = sum([np.prod(p.size()) for p in model_parameters])
-    print('Total params:', params)
+    print("Total params:", params)
 
     # build optimizer and lr scheduler
     optimizer = optim.Adam(net.parameters(), lr=lr)
     # optimizer = optim.SGD(net.parameters(), lr=lr, momentum=0.9, nesterov=True)
-    scheduler = lr_scheduler.ReduceLROnPlateau(optimizer, 'max', factor=0.5, patience=25, verbose=True)
+    scheduler = lr_scheduler.ReduceLROnPlateau(
+        optimizer, "max", factor=0.5, patience=25, verbose=True
+    )
 
     for epoch in range(1000):
-        mini = MiniImagenet('../mini-imagenet/', mode='train', n_way=n_way, k_shot=k_shot, k_query=k_query,
-                            batchsz=10000, resize=imgsz)
+        mini = MiniImagenet(
+            "../mini-imagenet/",
+            mode="train",
+            n_way=n_way,
+            k_shot=k_shot,
+            k_query=k_query,
+            batchsz=10000,
+            resize=imgsz,
+        )
         db = DataLoader(mini, batchsz, shuffle=True, num_workers=8, pin_memory=True)
         total_train_loss = 0
         total_train_correct = 0
@@ -179,7 +209,9 @@ def main():
             # 1. test
             if step % 300 == 0:
                 # evaluation(net, batchsz, n_way, k_shot, imgsz, episodesz, threhold, mdl_file):
-                accuracy, sem = evaluation(net, batchsz, n_way, k_shot, imgsz, 600, threhold, mdl_file)
+                accuracy, sem = evaluation(
+                    net, batchsz, n_way, k_shot, imgsz, 600, threhold, mdl_file
+                )
                 scheduler.step(accuracy)
 
             # 2. train
@@ -205,8 +237,10 @@ def main():
                 total_train_correct = 0
                 total_train_num = 0
 
-                print('%d-way %d-shot %d batch> epoch:%d step:%d, loss:%.4f, train acc:%.4f' % (
-                    n_way, k_shot, batchsz, epoch, step, total_train_loss, acc))
+                print(
+                    "%d-way %d-shot %d batch> epoch:%d step:%d, loss:%.4f, train acc:%.4f"
+                    % (n_way, k_shot, batchsz, epoch, step, total_train_loss, acc)
+                )
                 total_train_loss = 0
 
                 global global_train_loss_buff, global_train_acc_buff
@@ -215,5 +249,5 @@ def main():
                 write2file(n_way, k_shot)
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

@@ -40,29 +40,39 @@ class MiniImagenet(Dataset):
         self.k_shot = k_shot  # k-shot
         self.k_query = k_query  # for evaluation
         self.setsz = self.n_way * self.k_shot  # num of samples per set
-        self.querysz = self.n_way * self.k_query  # number of samples per set for evaluation
+        self.querysz = (
+            self.n_way * self.k_query
+        )  # number of samples per set for evaluation
         self.resize = resize  # resize to
         self.startidx = startidx  # index label not from 0, but from startidx
-        print('shuffle DB :%s, b:%d, %d-way, %d-shot, %d-query, resize:%d' % (
-        mode, batchsz, n_way, k_shot, k_query, resize))
+        print(
+            "shuffle DB :%s, b:%d, %d-way, %d-shot, %d-query, resize:%d"
+            % (mode, batchsz, n_way, k_shot, k_query, resize)
+        )
 
-        if mode == 'train':
-            self.transform = transforms.Compose([lambda x: Image.open(x).convert('RGB'),
-                                                 transforms.Resize((self.resize, self.resize)),
-                                                 # transforms.RandomHorizontalFlip(),
-                                                 # transforms.RandomRotation(5),
-                                                 transforms.ToTensor(),
-                                                 transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
-                                                 ])
+        if mode == "train":
+            self.transform = transforms.Compose(
+                [
+                    lambda x: Image.open(x).convert("RGB"),
+                    transforms.Resize((self.resize, self.resize)),
+                    # transforms.RandomHorizontalFlip(),
+                    # transforms.RandomRotation(5),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+                ]
+            )
         else:
-            self.transform = transforms.Compose([lambda x: Image.open(x).convert('RGB'),
-                                                 transforms.Resize((self.resize, self.resize)),
-                                                 transforms.ToTensor(),
-                                                 transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225))
-                                                 ])
+            self.transform = transforms.Compose(
+                [
+                    lambda x: Image.open(x).convert("RGB"),
+                    transforms.Resize((self.resize, self.resize)),
+                    transforms.ToTensor(),
+                    transforms.Normalize((0.485, 0.456, 0.406), (0.229, 0.224, 0.225)),
+                ]
+            )
 
-        self.path = os.path.join(root, 'images')  # image path
-        csvdata = self.loadCSV(os.path.join(root, mode + '.csv'))  # csv path
+        self.path = os.path.join(root, "images")  # image path
+        csvdata = self.loadCSV(os.path.join(root, mode + ".csv"))  # csv path
         self.data = []
         self.img2label = {}
         for i, (k, v) in enumerate(csvdata.items()):
@@ -80,7 +90,7 @@ class MiniImagenet(Dataset):
         """
         dictLabels = {}
         with open(csvf) as csvfile:
-            csvreader = csv.reader(csvfile, delimiter=',')
+            csvreader = csv.reader(csvfile, delimiter=",")
             next(csvreader, None)  # skip (filename, label)
             for i, row in enumerate(csvreader):
                 filename = row[0]
@@ -103,18 +113,25 @@ class MiniImagenet(Dataset):
         self.query_x_batch = []  # query set batch
         for b in range(batchsz):  # for each batch
             # 1.select n_way classes randomly
-            selected_cls = np.random.choice(self.cls_num, self.n_way, False)  # no duplicate
+            selected_cls = np.random.choice(
+                self.cls_num, self.n_way, False
+            )  # no duplicate
             np.random.shuffle(selected_cls)
             support_x = []
             query_x = []
             for cls in selected_cls:
                 # 2. select k_shot + k_query for each class
-                selected_imgs_idx = np.random.choice(len(self.data[cls]), self.k_shot + self.k_query, False)
+                selected_imgs_idx = np.random.choice(
+                    len(self.data[cls]), self.k_shot + self.k_query, False
+                )
                 np.random.shuffle(selected_imgs_idx)
-                indexDtrain = np.array(selected_imgs_idx[:self.k_shot])  # idx for Dtrain
-                indexDtest = np.array(selected_imgs_idx[self.k_shot:])  # idx for Dtest
+                indexDtrain = np.array(
+                    selected_imgs_idx[: self.k_shot]
+                )  # idx for Dtrain
+                indexDtest = np.array(selected_imgs_idx[self.k_shot :])  # idx for Dtest
                 support_x.append(
-                    np.array(self.data[cls])[indexDtrain].tolist())  # get all images filename for current Dtrain
+                    np.array(self.data[cls])[indexDtrain].tolist()
+                )  # get all images filename for current Dtrain
                 query_x.append(np.array(self.data[cls])[indexDtest].tolist())
 
             # shuffle the correponding relation between support set and query set
@@ -139,16 +156,33 @@ class MiniImagenet(Dataset):
         # [querysz]
         query_y = np.zeros((self.querysz), dtype=np.int)
 
-        flatten_support_x = [os.path.join(self.path, item)
-                             for sublist in self.support_x_batch[index] for item in sublist]
+        flatten_support_x = [
+            os.path.join(self.path, item)
+            for sublist in self.support_x_batch[index]
+            for item in sublist
+        ]
         support_y = np.array(
-            [self.img2label[item[:9]]  # filename:n0153282900000005.jpg, the first 9 characters treated as label
-             for sublist in self.support_x_batch[index] for item in sublist]).astype(np.int32)
+            [
+                self.img2label[
+                    item[:9]
+                ]  # filename:n0153282900000005.jpg, the first 9 characters treated as label
+                for sublist in self.support_x_batch[index]
+                for item in sublist
+            ]
+        ).astype(np.int32)
 
-        flatten_query_x = [os.path.join(self.path, item)
-                           for sublist in self.query_x_batch[index] for item in sublist]
-        query_y = np.array([self.img2label[item[:9]]
-                            for sublist in self.query_x_batch[index] for item in sublist]).astype(np.int32)
+        flatten_query_x = [
+            os.path.join(self.path, item)
+            for sublist in self.query_x_batch[index]
+            for item in sublist
+        ]
+        query_y = np.array(
+            [
+                self.img2label[item[:9]]
+                for sublist in self.query_x_batch[index]
+                for item in sublist
+            ]
+        ).astype(np.int32)
 
         # print('global:', support_y, query_y)
         # support_y: [setsz]
@@ -173,14 +207,19 @@ class MiniImagenet(Dataset):
         # print(support_set_y)
         # return support_x, torch.LongTensor(support_y), query_x, torch.LongTensor(query_y)
 
-        return support_x, torch.LongTensor(support_y_relative), query_x, torch.LongTensor(query_y_relative)
+        return (
+            support_x,
+            torch.LongTensor(support_y_relative),
+            query_x,
+            torch.LongTensor(query_y_relative),
+        )
 
     def __len__(self):
         # as we have built up to batchsz of sets, you can sample some small batch size of sets.
         return self.batchsz
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     # the following episode is to view one set of images via tensorboard.
     from torchvision.utils import make_grid
     from matplotlib import pyplot as plt
@@ -189,8 +228,16 @@ if __name__ == '__main__':
 
     plt.ion()
 
-    tb = SummaryWriter('runs', 'mini-imagenet')
-    mini = MiniImagenet('../mini-imagenet/', mode='train', n_way=5, k_shot=1, k_query=1, batchsz=1000, resize=168)
+    tb = SummaryWriter("runs", "mini-imagenet")
+    mini = MiniImagenet(
+        "../mini-imagenet/",
+        mode="train",
+        n_way=5,
+        k_shot=1,
+        k_query=1,
+        batchsz=1000,
+        resize=168,
+    )
 
     for i, set_ in enumerate(mini):
         # support_x: [k_shot*n_way, 3, 84, 84]
@@ -206,8 +253,8 @@ if __name__ == '__main__':
         plt.imshow(query_x.transpose(2, 0).numpy())
         plt.pause(0.5)
 
-        tb.add_image('support_x', support_x)
-        tb.add_image('query_x', query_x)
+        tb.add_image("support_x", support_x)
+        tb.add_image("query_x", query_x)
 
         time.sleep(5)
 

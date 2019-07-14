@@ -9,11 +9,10 @@ from torch.utils.data import TensorDataset
 import numpy as np
 import os
 
-multiprocessing = multiprocessing.get_context('spawn')
+multiprocessing = multiprocessing.get_context("spawn")
 
 
 class Concept(nn.Module):
-
     def __init__(self):
         super(Concept, self).__init__()
 
@@ -22,16 +21,13 @@ class Concept(nn.Module):
             nn.BatchNorm2d(64, momentum=1),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2),
-
             nn.Conv2d(64, 64, kernel_size=3, padding=0),
             nn.BatchNorm2d(64, momentum=1),
             nn.ReLU(inplace=True),
             nn.MaxPool2d(kernel_size=2),
-
             nn.Conv2d(64, 64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64, momentum=1),
             nn.ReLU(inplace=True),
-
             nn.Conv2d(64, 64, kernel_size=3, padding=1),
             nn.BatchNorm2d(64, momentum=1),
             nn.ReLU(inplace=True),
@@ -52,7 +48,6 @@ class Concept(nn.Module):
 
 
 class Relation(nn.Module):
-
     def __init__(self):
         super(Relation, self).__init__()
 
@@ -62,7 +57,7 @@ class Relation(nn.Module):
             nn.Linear(256, 256),
             nn.ReLU(inplace=True),
             nn.Linear(256, 256),
-            nn.ReLU(inplace=True)
+            nn.ReLU(inplace=True),
         )
 
         self.f = nn.Sequential(
@@ -71,7 +66,7 @@ class Relation(nn.Module):
             nn.Linear(256, 256),
             nn.ReLU(inplace=True),
             nn.Linear(256, 256),
-            nn.ReLU(inplace=True)
+            nn.ReLU(inplace=True),
         )
 
     def forward(self, x):
@@ -79,13 +74,10 @@ class Relation(nn.Module):
 
 
 class OutLayer(nn.Module):
-
     def __init__(self):
         super(OutLayer, self).__init__()
 
-        self.net = nn.Sequential(
-            nn.Linear(64 * 3 * 3, 5)
-        )
+        self.net = nn.Sequential(nn.Linear(64 * 3 * 3, 5))
 
     def forward(self, x):
         # downsample
@@ -174,7 +166,7 @@ def inner_train(K, gpuidx, support_x, support_y, query_x, query_y, concepts, Q):
     Q.put([gpuidx, loss.data[0], accuracy])
 
     del outlayer, criteon
-    print('removed outlayer and criteon.')
+    print("removed outlayer and criteon.")
 
 
 class CSML:
@@ -198,7 +190,9 @@ class CSML:
         # to save async multi-tasks' loss and accuracy
         self.Q = multiprocessing.Queue()
 
-        print('please call deploy() func to deploy networks. DO NOT call cuda() explicitly.')
+        print(
+            "please call deploy() func to deploy networks. DO NOT call cuda() explicitly."
+        )
 
     def deploy(self):
         # deplay N task on distributed GPU cluster and
@@ -211,7 +205,7 @@ class CSML:
 
         # meta optimizer
         self.optimizer = optim.Adam(self.concepts[0].parameters(), lr=1e-3)
-        print('deploy done.')
+        print("deploy done.")
 
     def train(self, support_x, support_y, query_x, query_y, train=True):
         """
@@ -237,15 +231,25 @@ class CSML:
         # 3. start training for whole tasks asynchronous
         processes = []
         for p in range(self.N):
-            p = multiprocessing.Process(target=inner_train,
-                                        args=(self.K, p, support_xb[p], support_yb[p], query_xb[p], query_yb[p],
-                                              self.concepts, self.Q))
+            p = multiprocessing.Process(
+                target=inner_train,
+                args=(
+                    self.K,
+                    p,
+                    support_xb[p],
+                    support_yb[p],
+                    query_xb[p],
+                    query_yb[p],
+                    self.concepts,
+                    self.Q,
+                ),
+            )
             p.start()
             processes.append(p)
         for p in processes:
             p.join()
 
-        print('join completed.')
+        print("join completed.")
         # 4. merge result
         # util here, we have executed all tasks in GPU cluster in parallel.
         data = [self.Q.get_nowait() for _ in range(self.N)]
@@ -253,7 +257,7 @@ class CSML:
         meta_train_loss = np.array([i[1] for i in data]).astype(np.float32).sum()
         # meta_train_loss = Variable(torch.FloatTensor(meta_train_loss).cuda(0))
 
-        print('acc:', accuracy, 'meta-loss:', meta_train_loss)
+        print("acc:", accuracy, "meta-loss:", meta_train_loss)
 
         if train:
             # compute gradients
