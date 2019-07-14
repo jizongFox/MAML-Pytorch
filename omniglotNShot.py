@@ -44,10 +44,7 @@ class OmniglotNShot:
                     temp[label] = [img]
 
             self.x = []
-            for (
-                label,
-                imgs,
-            ) in temp.items():  # labels info deserted , each label contains 20imgs
+            for (label, imgs,) in temp.items():  # labels info deserted , each label contains 20imgs
                 self.x.append(np.array(imgs))
 
             # as different class may have different number of imgs
@@ -68,7 +65,8 @@ class OmniglotNShot:
         # [1623, 20, 84, 84, 1]
         # TODO: can not shuffle here, we must keep training and test set distinct!
         self.x_train, self.x_test = self.x[:1200], self.x[1200:]
-
+        # self.x_train.shape = (1200, 20, 1, 28, 28)
+        # self.x_test.shape  = ( 423, 20, 1, 28, 28)
         # self.normalization()
 
         self.batchsz = batchsz
@@ -139,7 +137,7 @@ class OmniglotNShot:
 
                     # meta-training and meta-test
                     x_spt.append(data_pack[cur_class][selected_img[: self.k_shot]])
-                    x_qry.append(data_pack[cur_class][selected_img[self.k_shot :]])
+                    x_qry.append(data_pack[cur_class][selected_img[self.k_shot:]])
                     y_spt.append([j for _ in range(self.k_shot)])
                     y_qry.append([j for _ in range(self.k_query)])
 
@@ -162,18 +160,10 @@ class OmniglotNShot:
                 y_qrys.append(y_qry)
 
             # [b, setsz, 1, 84, 84]
-            x_spts = (
-                np.array(x_spts)
-                .astype(np.float32)
-                .reshape(self.batchsz, setsz, 1, self.resize, self.resize)
-            )
+            x_spts = (np.array(x_spts).astype(np.float32).reshape(self.batchsz, setsz, 1, self.resize, self.resize))
             y_spts = np.array(y_spts).astype(np.int).reshape(self.batchsz, setsz)
             # [b, qrysz, 1, 84, 84]
-            x_qrys = (
-                np.array(x_qrys)
-                .astype(np.float32)
-                .reshape(self.batchsz, querysz, 1, self.resize, self.resize)
-            )
+            x_qrys = (np.array(x_qrys).astype(np.float32).reshape(self.batchsz, querysz, 1, self.resize, self.resize))
             y_qrys = np.array(y_qrys).astype(np.int).reshape(self.batchsz, querysz)
 
             data_cache.append([x_spts, y_spts, x_qrys, y_qrys])

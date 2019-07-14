@@ -1,13 +1,12 @@
+from copy import deepcopy
+
+import numpy as np
 import torch
 from torch import nn
 from torch import optim
 from torch.nn import functional as F
-from torch.utils.data import TensorDataset, DataLoader
-from torch import optim
-import numpy as np
 
 from learner import Learner
-from copy import deepcopy
 
 
 class Meta(nn.Module):
@@ -33,6 +32,23 @@ class Meta(nn.Module):
 
         self.net = Learner(config, args.imgc, args.imgsz)
         self.meta_optim = optim.Adam(self.net.parameters(), lr=self.meta_lr)
+        """
+        Learner(
+            conv2d:(ch_in:1, ch_out:64, k:3x3, stride:2, padding:0)
+            relu:(True,)
+            bn:(64,)
+            conv2d:(ch_in:64, ch_out:64, k:3x3, stride:2, padding:0)
+            relu:(True,)
+            bn:(64,)
+            conv2d:(ch_in:64, ch_out:64, k:3x3, stride:2, padding:0)
+            relu:(True,)
+            bn:(64,)
+            conv2d:(ch_in:64, ch_out:64, k:2x2, stride:1, padding:0)
+            relu:(True,)
+            bn:(64,)
+            flatten:()
+            linear:(in:64, out:5)
+        """
 
     def clip_grad_by_norm_(self, grad, max_norm):
         """
@@ -80,12 +96,7 @@ class Meta(nn.Module):
             logits = self.net(x_spt[i], vars=None, bn_training=True)
             loss = F.cross_entropy(logits, y_spt[i])
             grad = torch.autograd.grad(loss, self.net.parameters())
-            fast_weights = list(
-                map(
-                    lambda p: p[1] - self.update_lr * p[0],
-                    zip(grad, self.net.parameters()),
-                )
-            )
+            fast_weights = list(map(lambda p: p[1] - self.update_lr * p[0], zip(grad, self.net.parameters()), ))
 
             # this is the loss and accuracy before first update
             with torch.no_grad():
@@ -116,9 +127,7 @@ class Meta(nn.Module):
                 # 2. compute grad on theta_pi
                 grad = torch.autograd.grad(loss, fast_weights)
                 # 3. theta_pi = theta_pi - train_lr * grad
-                fast_weights = list(
-                    map(lambda p: p[1] - self.update_lr * p[0], zip(grad, fast_weights))
-                )
+                fast_weights = list(map(lambda p: p[1] - self.update_lr * p[0], zip(grad, fast_weights)))
 
                 logits_q = self.net(x_qry[i], fast_weights, bn_training=True)
                 # loss_q will be overwritten and just keep the loss_q on last update step.
@@ -127,9 +136,7 @@ class Meta(nn.Module):
 
                 with torch.no_grad():
                     pred_q = F.softmax(logits_q, dim=1).argmax(dim=1)
-                    correct = (
-                        torch.eq(pred_q, y_qry[i]).sum().item()
-                    )  # convert to numpy
+                    correct = (torch.eq(pred_q, y_qry[i]).sum().item())  # convert to numpy
                     corrects[k + 1] = corrects[k + 1] + correct
 
         # end of all tasks
@@ -171,9 +178,7 @@ class Meta(nn.Module):
         logits = net(x_spt)
         loss = F.cross_entropy(logits, y_spt)
         grad = torch.autograd.grad(loss, net.parameters())
-        fast_weights = list(
-            map(lambda p: p[1] - self.update_lr * p[0], zip(grad, net.parameters()))
-        )
+        fast_weights = list(map(lambda p: p[1] - self.update_lr * p[0], zip(grad, net.parameters())))
 
         # this is the loss and accuracy before first update
         with torch.no_grad():

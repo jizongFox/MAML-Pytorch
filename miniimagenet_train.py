@@ -1,12 +1,11 @@
-import torch, os
-import numpy as np
-from MiniImagenet import MiniImagenet
-import scipy.stats
-from torch.utils.data import DataLoader
-from torch.optim import lr_scheduler
-import random, sys, pickle
 import argparse
 
+import numpy as np
+import scipy.stats
+import torch
+from torch.utils.data import DataLoader
+
+from MiniImagenet import MiniImagenet
 from meta import Meta
 
 

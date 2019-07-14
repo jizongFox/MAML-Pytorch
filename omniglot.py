@@ -1,7 +1,8 @@
-import torch.utils.data as data
+import errno
 import os
 import os.path
-import errno
+
+import torch.utils.data as data
 
 
 class Omniglot(data.Dataset):
@@ -21,6 +22,8 @@ class Omniglot(data.Dataset):
     - transform: how to transform the input
     - target_transform: how to transform the target
     - download: need to download the dataset
+    
+    In this dataset, you have 1623 tasks, each task having only 20-26 images.
     """
 
     def __init__(self, root, transform=None, target_transform=None, download=False):
