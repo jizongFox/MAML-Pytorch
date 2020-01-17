@@ -44,7 +44,7 @@ def main():
         ("linear", [args.n_way, 32 * 5 * 5]),
     ]
 
-    device = torch.device("cuda")
+    device = torch.device("cpu")
     maml = Meta(args, config).to(device)
 
     tmp = filter(lambda x: x.requires_grad, maml.parameters())
@@ -54,7 +54,7 @@ def main():
 
     # batchsz here means total episode number
     mini = MiniImagenet(
-        "/home/i/tmp/MAML-Pytorch/miniimagenet/",
+        "./miniimagenet/",
         mode="train",
         n_way=args.n_way,
         k_shot=args.k_spt,
@@ -63,7 +63,7 @@ def main():
         resize=args.imgsz,
     )
     mini_test = MiniImagenet(
-        "/home/i/tmp/MAML-Pytorch/miniimagenet/",
+        "./miniimagenet/",
         mode="test",
         n_way=args.n_way,
         k_shot=args.k_spt,

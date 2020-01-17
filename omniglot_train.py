@@ -11,7 +11,7 @@ def main(args):
     torch.manual_seed(222)
     torch.cuda.manual_seed_all(222)
     np.random.seed(222)
-
+    torch.backends.cudnn.benchmark=True
     print(args)
 
     config = [
@@ -34,11 +34,6 @@ def main(args):
     device = torch.device("cuda")
     maml = Meta(args, config).to(device)
 
-    tmp = filter(lambda x: x.requires_grad, maml.parameters())
-    num = sum(map(lambda x: np.prod(x.shape), tmp))
-    print(maml)
-    print("Total trainable tensors:", num)
-
     db_train = OmniglotNShot(
         "omniglot",
         batchsz=args.task_num,
@@ -47,6 +42,11 @@ def main(args):
         k_query=args.k_qry,
         imgsz=args.imgsz,
     )
+
+    tmp = filter(lambda x: x.requires_grad, maml.parameters())
+    num = sum(map(lambda x: np.prod(x.shape), tmp))
+    print(maml)
+    print("Total trainable tensors:", num)
 
     for step in range(args.epoch):
 
