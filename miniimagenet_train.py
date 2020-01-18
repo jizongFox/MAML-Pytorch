@@ -92,7 +92,7 @@ def main():
             if step % 30 == 0:
                 print("step:", step, "\ttraining acc:", accs)
 
-            if step % 500 == 0:  # evaluation
+            if step % 100 == 0:  # evaluation
                 db_test = DataLoader(
                     mini_test, 1, shuffle=True, num_workers=1, pin_memory=True
                 )
